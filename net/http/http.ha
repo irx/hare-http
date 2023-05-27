@@ -23,7 +23,8 @@ export type method = enum {
 
 export type header = struct {
 	key: str,
-	value: str,
+	value: (str | []str | void),
+	content: []u8,
 };
 
 export type request = struct {
@@ -68,7 +69,7 @@ export fn write_request(out: io::handle, req: *const request) (size | io::error)
 	for (let i = 0z; i < len(req.headers); i += 1)
 		z += fmt::fprintf(out, "{}: {}\r\n",
 			req.headers[i].key,
-			req.headers[i].value)?;
+			req.headers[i].value as str)?;
 	z += fmt::fprint(out, "\r\n")?;
 	z += io::write(out, req.body)?;
 	return z;
@@ -92,7 +93,7 @@ export fn write_response(out: io::handle, res: *const response) (size | io::erro
 	for (let i = 0z; i < len(res.headers); i += 1)
 		z += fmt::fprintf(out, "{}: {}\r\n",
 			res.headers[i].key,
-			res.headers[i].value)?;
+			res.headers[i].value as str)?;
 	z += fmt::fprint(out, "\r\n")?;
 	z += io::write(out, res.body)?;
 	return z;
@@ -112,9 +113,18 @@ export fn write(out: io::handle, msg: const message) (size | io::error) = {
 		yield res.headers;
 	};
 	for (let i = 0z; i < len(headers); i += 1)
-		z += fmt::fprintf(out, "{}: {}\r\n",
-			headers[i].key,
-			headers[i].value)?;
+		match (headers[i].value) {
+		case let val: str =>
+			z += fmt::fprintf(out, "{}: {}\r\n",
+				headers[i].key, val)?;
+		case let vals: []str =>
+			z += fmt::fprintf(out, "{}:", headers[i].key)?;
+			for (let j = 0z; j < len(vals); j += 1)
+				z += fmt::fprintf(out, " {};")?;
+			z += fmt::fprint(out, "\r\n")?;
+		case void =>
+			z += fmt::fprintf(out, "{}:\r\n", headers[i].key)?;
+		};
 	z += fmt::fprint(out, "\r\n")?;
 	const body = match (msg) {
 	case let req: *request => yield req.body;
@@ -156,7 +166,7 @@ export fn finish(msg: message) void = {
 	};
 	for (let i = 0z; i < len(headers); i += 1) {
 		free(headers[i].key);
-		free(headers[i].value);
+		free(headers[i].content);
 	};
 	free(headers);
 };
@@ -168,10 +178,12 @@ export fn finish(msg: message) void = {
 		headers = alloc([], 4),
 		body = alloc([], 4),
 	};
+	const content: []u8 = alloc(['v', 'a', 'l', 'u', 'e'], 5);
 	append(req.headers,
 		header {
 			key = strings::dup("key"),
-			value = strings::dup("value"),
+			content = content,
+			value = strings::fromutf8(content) as str,
 		}
 	);
 	finish(&req);
