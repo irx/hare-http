@@ -4,10 +4,10 @@
 use bufio;
 use fmt;
 use io;
+use memio;
 use net::uri;
 use os;
 use strings;
-use strio;
 
 export type method = enum {
 	GET,
@@ -136,9 +136,9 @@ export fn write(out: io::handle, msg: const message) (size | io::error) = {
 
 // Dumps [[message]] into a string. Must be freed after use.
 export fn tostr(msg: const message) str = {
-	let s = strio::dynamic();
+	let s = memio::dynamic();
 	write(&s, msg)!;
-	return strio::string(&s);
+	return memio::string(&s)!;
 };
 
 @test fn tostr() void = {
