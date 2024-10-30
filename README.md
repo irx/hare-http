@@ -7,6 +7,6 @@ WiP
 roadmap:
 
  - [x] write message
- - [ ] read message
+ - [x] read message
  - [ ] dial
  - [ ] listen
